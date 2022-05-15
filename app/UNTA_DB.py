@@ -84,7 +84,7 @@ def delete_note(note_id, dbname="testi", table_name="testitaulu"):
 
 
 def list_all(dbname="testi", table_name="testitaulu"):
-    query = f"SELECT * FROM {table_name}"
+    query = f"SELECT note_id, date_sub, title FROM {table_name}"
     stuff = _execute_db_query_returnable(query, dbname)
     return stuff
 
@@ -92,17 +92,28 @@ def list_all(dbname="testi", table_name="testitaulu"):
 def find_note(dbname="testi", table_name="testitaulu", noteid=None, note_title=None, note_time=None):
     query = None
     if noteid:
-        query = f"SELECT * FROM {table_name} WHERE note_id={noteid}"
+        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE note_id={noteid}"
         stuff = _execute_db_query_returnable(query, dbname)
         return stuff
     if note_title:
-        query = f"SELECT * FROM {table_name} WHERE title='{note_title}'"
+        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE title='{note_title}'"
         stuff = _execute_db_query_returnable(query, dbname)
         return stuff
     if noteid:
-        query = f"SELECT * FROM {table_name} WHERE date_sub='{note_time}'"
+        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE date_sub='{note_time}'"
         stuff = _execute_db_query_returnable(query, dbname)
         return stuff
+
+
+def read_note(note_id, dbname="testi", table_name="testitaulu"):
+    stuff = None
+    query = f"SELECT * FROM {table_name} WHERE note_id={note_id}"
+    try:
+        stuff = _execute_db_query_returnable(query, dbname)
+    except:
+        pass
+
+    return stuff
 
 
 def main():
