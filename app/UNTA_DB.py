@@ -3,113 +3,124 @@ import os
 import datetime
 
 
-def _connect_db(dbname="testi"):
+_DB_HANDLER = None
+
+def _connect_db(dbname):
+    global _DB_HANDLER
+    
     path = os.path.abspath(os.getcwd() + f"/data/{dbname}.db")
+    
+    if _DB_HANDLER == sqlite3.connect(path):
+        return True
+    
     if os.path.exists(path):
-        return sqlite3.connect(path)
+        _DB_HANDLER = sqlite3.connect(path)
+        return True
+    
     return False
 
 
-def _disconnect_db(connection):
-    connection.close()
+if not _connect_db("default"):
+    raise RuntimeError("Database init error")
 
 
-def _execute_db_query(query, dbname):
-    connection = _connect_db(dbname)
-    if not connection:
-        return
+def disconnect_db():
+    global _DB_HANDLER
+    _DB_HANDLER.close()
+
+
+def _execute_db_query(query):
+    if not _DB_HANDLER:
+        raise RuntimeError("Database connection lost")
     try:
-        cursor = connection.cursor()
+        cursor = _DB_HANDLER.cursor()
         cursor.execute(query)
-        connection.commit()
+        _DB_HANDLER.commit()
     except sqlite3.Error as e:
         print("Database error: " + str(e))
-    finally:
-        _disconnect_db(connection)
 
 
-def _execute_db_query_returnable(query, dbname):
-    connection = _connect_db(dbname)
+def _execute_db_query_returnable(query):
     rows = ""
-    if not connection:
-        return
+
     try:
-        cursor = connection.cursor()
+        cursor = _DB_HANDLER.cursor()
         cursor.execute(query)
-        connection.commit()
+        _DB_HANDLER.commit()
         rows = cursor.fetchall()
     except sqlite3.Error as e:
         print("Database error: " + str(e))
 
-    _disconnect_db(connection)
     return rows
 
 
-def create_db(dbname="testi"):
+def create_db(dbname=None):
+    global _DB_HANDLER
+    
+    if not dbname:
+        _DB_HANDLER = sqlite3.connect(":memory:")
+        return "In memory database created. FOR TESTING PURPOSES ONLY!"
+
     path = os.path.abspath(os.getcwd() + f"/data/{dbname}.db")
 
     if not os.path.exists(path):
-        _disconnect_db(sqlite3.connect(path))  # Connect and close connect to create db
-        return "Database created with that name"
+        sqlite3.connect(path).close  # Connect and close connect to create db
+        _connect_db(dbname)
+        return "Database created with that name and connection estabished for that database"
 
     return "Database exists with that name"
 
 
-def create_table(table_name="testitaulu", dbname="testi"):
-    connection = _connect_db(dbname)
-    if not connection:
-        return
+def create_table(table_name):
+    
+    if not _DB_HANDLER:
+        raise RuntimeError("Database connection lost")
+    
     query = f"CREATE TABLE {table_name}(" \
             f"note_id INTEGER PRIMARY KEY , " \
             f"date_sub TEXT , " \
+            f"date_edited TEXT , " \
             f"title TEXT, " \
             f"content TEXT )"
 
-    _execute_db_query(query, dbname)
+    _execute_db_query(query)
 
 
-def add_note(note_title, note_text, dbname="testi", table_name="testitaulu"):
+def add_note(note_title, note_text, table_name):
     dt = datetime.datetime.now()
     dt = dt.strftime("%Y.%m.%d, %H.%M")
 
     query = f"INSERT INTO {table_name}(date_sub, title, content)" \
             f" VALUES (\'{dt}\', \'{note_title}\', \'{note_text}\');"
 
-    _execute_db_query(query, dbname)
+    _execute_db_query(query)
 
 
-def delete_note(note_id, dbname="testi", table_name="testitaulu"):
+def delete_note(note_id, table_name):
     query = f"DELETE FROM {table_name} WHERE note_id={note_id};"
-    _execute_db_query(query, dbname)
+    _execute_db_query(query)
 
 
-def list_all(dbname="testi", table_name="testitaulu"):
-    query = f"SELECT note_id, date_sub, title FROM {table_name}"
-    stuff = _execute_db_query_returnable(query, dbname)
+def find_note(table_name, condition=None):
+    """
+    Creates a sql search query. If no condition is given, returns everything from a table.
+    """
+    query = None
+
+    if not condition:
+        query = f"SELECT note_id, date_sub, title FROM {table_name}"
+    else:
+        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE {condition}"
+    
+    stuff = _execute_db_query_returnable(query)
     return stuff
 
 
-def find_note(dbname="testi", table_name="testitaulu", noteid=None, note_title=None, note_time=None):
-    query = None
-    if noteid:
-        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE note_id={noteid}"
-        stuff = _execute_db_query_returnable(query, dbname)
-        return stuff
-    if note_title:
-        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE title='{note_title}'"
-        stuff = _execute_db_query_returnable(query, dbname)
-        return stuff
-    if noteid:
-        query = f"SELECT note_id, date_sub, title FROM {table_name} WHERE date_sub='{note_time}'"
-        stuff = _execute_db_query_returnable(query, dbname)
-        return stuff
-
-
-def read_note(note_id, dbname="testi", table_name="testitaulu"):
+def read_note(note_id, table_name):
     stuff = None
     query = f"SELECT * FROM {table_name} WHERE note_id={note_id}"
     try:
-        stuff = _execute_db_query_returnable(query, dbname)
+        stuff = _execute_db_query_returnable(query)
     except:
         pass
 
@@ -117,15 +128,7 @@ def read_note(note_id, dbname="testi", table_name="testitaulu"):
 
 
 def main():
-    print(_connect_db())
-
-    print(create_db())
-    create_table()
-
-    list = list_all()
-
-    for row in list:
-        print(row)
+    pass
 
 
 if __name__ == '__main__':

@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 # no need for db upload
-.db
+*.db
+data/
